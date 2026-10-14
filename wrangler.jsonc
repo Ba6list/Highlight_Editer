@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nobori-highlight-studio",
+  "account_id": "e5b44a94cae33898c631d933491a17a9",
   "main": "worker/index.ts",
   "compatibility_date": "2025-09-01",
   "assets": {
