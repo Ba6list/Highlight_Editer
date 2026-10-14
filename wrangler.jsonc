@@ -13,7 +13,7 @@
     {
       "binding": "DB",
       "database_name": "nobori-highlight",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "7ae967dc-f1ab-443c-8eea-615574a5428a",
       "migrations_dir": "migrations",
     },
   ],

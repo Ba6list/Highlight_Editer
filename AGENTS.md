@@ -13,4 +13,4 @@
 ## 専用リポジトリ
 
 - 対象URL： https://github.com/Ba6list/Highlight_Editer
-- Cloudflareのアカウント作成はユーザーが完了。D1・R2・Workers・Secretsは未設定で、本番公開の許可もまだ受けていない。
+- Cloudflareのアカウント作成はユーザーが完了。D1はnobori-highlightとして作成され、ユーザー提供のDatabase IDを設定済み。Cloudflareへの実接続はまだ未確認。R2・Workers・Secretsは未設定で、本番公開の許可もまだ受けていない。
