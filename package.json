@@ -1,0 +1,42 @@
+{
+  "name": "nobori-highlight-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "npm run build && wrangler dev --config wrangler.jsonc --ip 127.0.0.1 --port 8790",
+    "dev:api": "wrangler dev --config wrangler.jsonc --port 8790",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "check": "npm run build && npm test",
+    "db:local": "wrangler d1 migrations apply nobori-highlight --config wrangler.jsonc --local",
+    "db:remote": "wrangler d1 migrations apply nobori-highlight --config wrangler.jsonc --remote",
+    "deploy": "npm run build && node scripts/check-deploy.mjs && wrangler deploy --config wrangler.jsonc",
+    "setup": "node scripts/setup.mjs",
+    "dev:ui": "vite --host 127.0.0.1 --port 5190"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.2",
+    "@cloudflare/workers-types": "5.20261014.1",
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "jsonc-parser": "^3.3.1",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0",
+    "vitest": "4.1.11",
+    "wrangler": "4.151.0"
+  }
+}
