@@ -13,4 +13,8 @@
 ## 専用リポジトリ
 
 - 対象URL： https://github.com/Ba6list/Highlight_Editer
+- 公開予定URL： https://nobori-highlight-studio.ko-ki-bb6220.workers.dev （ユーザーの管理画面でアカウントSubdomainを確認済み）。共通パスワード・管理者PINのローカル設定は確認済み。本番Secretsへの登録は未実施。
 - Cloudflareのアカウント作成はユーザーが完了。D1はnobori-highlightとして作成され、ユーザー提供のDatabase IDを設定済み。Cloudflareにキーチェーン保護のOAuth接続済み。D1のID・名前とR2 nobori-highlight-media（Standard、空）を実際に確認済み。Workers・Secretsは未設定で、本番公開の許可もまだ受けていない。
+
+- Google Cloudプロジェクトは nobori-highlight-studio。Drive API有効、OAuthクライアント作成、2TB契約の保存先アカウントをテストユーザー登録、drive.fileスコープ登録をユーザー画面で確認済み。Google・Twitchの接続情報はローカル.dev.varsへ保存・形式確認済み。秘密情報を出力しない。実OAuth接続は未確認。
+- 2026-10-19: GitHub ActionsのCLOUDFLARE_API_TOKENは登録済み画面を確認。CLOUDFLARE_ACCOUNT_IDもユーザーから登録完了の報告あり（値・実権限の本番動作は未確認）。公開予定URL設定後のビルドと40件のテスト成功。本番公開の許可はまだ受けていない。

@@ -91,6 +91,10 @@ npm run deploy
 
 ## 4. Twitchを接続する
 
+### このMacで接続情報を準備する場合
+
+プロジェクト内の`Twitch接続設定.command`を開くと、Client IDとClient Secretを非表示で入力してローカル`.dev.vars`へ保存できます。Google用は`Google接続設定.command`です。既存のログイン設定と他サービスの設定を保持します。これらの操作では本番へ送信しません。本番登録・公開は、その回のユーザー許可を受けた後に実施します。
+
 **目的**：公式配信のクリップ作成と動画取得を、管理者が一度だけ認可します。
 
 1. [Twitch Developer Console](https://dev.twitch.tv/console/apps)を`nobori_official`アカウントで開きます。Twitch側の二段階認証が必要な場合は先に設定します。
@@ -117,7 +121,7 @@ npx wrangler secret put --config wrangler.jsonc TWITCH_CLIENT_SECRET
 
 ## 5. Google Driveを接続する
 
-**目的**：5TBのDrive契約を持つ自分のアカウントへ、スタッフの個別ログインなしで動画を保存します。
+**目的**：2TBのDrive契約を持つ自分のアカウントへ、スタッフの個別ログインなしで動画を保存します。
 
 1. [Google Cloud Console](https://console.cloud.google.com/)を開き、専用プロジェクト`NOBORI Highlight Studio`を作ります。請求先アカウントの有効化や有料APIの追加は不要です。
 2. 「APIs & Services」→「Library」→「Google Drive API」を検索し、「Enable」を押します。
@@ -138,7 +142,7 @@ npx wrangler secret put --config wrangler.jsonc GOOGLE_CLIENT_ID
 npx wrangler secret put --config wrangler.jsonc GOOGLE_CLIENT_SECRET
 ```
 
-9. アプリの「システム設定」→「Google Drive 接続する」→PINを入力し、5TB契約があるGoogleアカウントで許可します。
+9. アプリの「システム設定」→「Google Drive 接続する」→PINを入力し、2TB契約があるGoogleアカウントで許可します。
 10. 接続済みになれば成功です。最初のアーカイブ処理で、Driveに「NOBORI Highlight Studio」フォルダが自動作成されます。
 
 **長期運用前の注意**：ExternalアプリのTesting状態では、Driveスコープを使う更新トークンは通常7日で失効します。運用前にGoogle Auth PlatformのAudienceでProductionへ移行してください。審査や警告の扱いはGoogleの表示に従います。有料サービスへ切り替える操作ではありません。アプリ公開状態を変えた後は再接続して新しい認可を保存してください。

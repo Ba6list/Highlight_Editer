@@ -1,6 +1,6 @@
 import { readConfig } from "./config.mjs";
 import { createHmac, randomBytes } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, chmod } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 let rl;
@@ -13,7 +13,6 @@ async function hidden(prompt) {
   const wasRaw = stdin.isRaw;
   if (stdin.isTTY) stdin.setRawMode(true);
   stdin.resume();
-  stdout.write(prompt);
   let value = "";
   try {
     return await new Promise((resolve, reject) => {
@@ -35,6 +34,7 @@ async function hidden(prompt) {
         }
       };
       stdin.on("data", handler);
+      stdout.write(prompt);
     });
   } finally {
     if (stdin.isTTY) stdin.setRawMode(!!wasRaw);
@@ -69,7 +69,25 @@ try {
     );
     console.log(".dev.vars を安全に作成しました。GitHubへは含まれません。");
   }
-  if (process.argv.includes("--security-only")) {
+  if (process.argv.includes("--twitch-only") || process.argv.includes("--google-only")) {
+    const google = process.argv.includes("--google-only");
+    const provider = google ? "Google" : "Twitch";
+    const prefix = google ? "GOOGLE" : "TWITCH";
+    const clientId = (await hidden(`${provider} Client IDを貼り付けてEnter（入力は非表示）: `)).trim();
+    const clientSecret = (await hidden(`${provider} Client Secretを貼り付けてEnter（入力は非表示）: `)).trim();
+    const validId = google ? /^[a-zA-Z0-9_-]{10,200}\.apps\.googleusercontent\.com$/.test(clientId) : /^[a-zA-Z0-9]{10,200}$/.test(clientId);
+    const validSecret = google ? /^[a-zA-Z0-9_-]{10,200}$/.test(clientSecret) : /^[a-zA-Z0-9]{10,200}$/.test(clientSecret);
+    if (!validId || !validSecret)
+      throw Error("Client IDとClient Secretを確認してください。既存の設定は変更していません。");
+    let content = await readFile(target, "utf8");
+    for (const [key, value] of [[`${prefix}_CLIENT_ID`, clientId], [`${prefix}_CLIENT_SECRET`, clientSecret]]) {
+      const pattern = new RegExp(`^${key}=.*$`, "m");
+      content = pattern.test(content) ? content.replace(pattern, `${key}=${value}`) : content.trimEnd() + `\n${key}=${value}\n`;
+    }
+    await chmod(target, 0o600);
+    await writeFile(target, content, { mode: 0o600 });
+    console.log(`${provider}接続情報をこのMacへ保存しました。本番への送信はまだ行っていません。設定できたことだけCodexへお知らせください。`);
+  } else if (process.argv.includes("--security-only")) {
     console.log(
       "パスワードとPINの初期設定が完了しました。値をチャットへ送らず、設定できたことだけお知らせください。",
     );
