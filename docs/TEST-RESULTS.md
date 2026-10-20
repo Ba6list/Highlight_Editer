@@ -2,6 +2,13 @@
 
 実施日：2026-10-14、2026-10-19（日本時間）
 
+## URL変更の公開確認（2026-10-20）
+
+- 新URL: https://nobori-highlight-studio.nbrhg.workers.dev/
+- ユーザーの今回の許可後、コミット`7253654da4486c4585b3aa1379fef2cce589721d`を[GitHub Actions run 39353379590](https://github.com/Ba6list/Highlight_Editer/actions/runs/39353379590)で公開。check・deploy成功。
+- トップ・JS/CSSはHTTP 200、未ログインのAPIは401。新Origin付きログイン要求は入力検証まで到達し、不正Originは403。認証情報の送信・セッション作成なし。
+- Twitchの新リダイレクトURIを画面確認、Googleの変更完了はユーザー報告。新URLでの再認可・実動画・Drive転送・OBS検証は未実施。
+
 ## 初回公開の確認（2026-10-19）
 
 - ユーザーの明示許可後、8項目のSecretsをCloudflareへ登録。秘密値は表示せず、コード・配布ZIPにも含めない。
