@@ -21,7 +21,7 @@
   "r2_buckets": [
     { "binding": "MEDIA", "bucket_name": "nobori-highlight-media" },
   ],
-  "vars": { "APP_ORIGIN": "https://nobori-highlight-studio.ko-ki-bb6220.workers.dev" },
+  "vars": { "APP_ORIGIN": "https://nobori-highlight-studio.nbrhg.workers.dev" },
   "triggers": { "crons": ["* * * * *", "17 * * * *"] },
   "observability": { "enabled": false },
 }
