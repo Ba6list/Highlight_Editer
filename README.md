@@ -4,8 +4,9 @@ NOBORI大会のTwitchクリップを収集し、必要な範囲と順番を編�
 
 ## 現在の状態
 
-ソース実装とローカル検証用の構成です。外部アカウント・本番環境は未接続です。**本番配信での利用前に [受け入れ確認](docs/ACCEPTANCE.md) を実施してください。** 模擬APIによる検証と実サービスでの検証を区別しています。
+WebアプリはCloudflareで公開済みで、Twitch・Googleの初回接続は確認済みです。Chrome拡張の対応版は実装・自動テスト済み、本番反映と実機確認前です。**本番配信での利用前に [受け入れ確認](docs/ACCEPTANCE.md) を実施してください。** 模擬APIによる検証と実サービスでの検証を区別しています。
 
+- Chrome拡張「NOBORI Clip」：公式Twitch画面の保存パネル、限定トークン、接続コード、重複要求の再試行（[導入手順](extension/README.md)）
 - 共通パスワード、12時間セッション、管理者PIN、CSRF対策、試行制限、暗号化トークン
 - Twitch OAuth、最大60秒指定のクリップ要求、非同期の生成確認、公式ダウンロードAPI、R2保存
 - 一覧、検索、タグ、タイトル、期限変更、再試行、削除確認
@@ -49,6 +50,7 @@ npm run check
 ## フォルダ
 
 ```text
+extension/            スタッフ用Chrome拡張（Manifest V3）
 src/                  日本語のスタッフ画面・編集・OBSプレーヤー
 worker/               認証・API・Twitch・Drive・転送処理
 migrations/           D1の定義と整合性保護

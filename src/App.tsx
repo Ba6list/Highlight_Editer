@@ -39,6 +39,7 @@ import {
   states,
 } from "./api";
 import Editor from "./Editor";
+import ExtensionPanel from "./ExtensionPanel";
 const nav = [
   ["dashboard", "概要", LayoutDashboard],
   ["capture", "クリップを保存", Video],
@@ -1852,6 +1853,7 @@ function SettingsPage({
           );
         })}
       </div>
+      <ExtensionPanel notify={notify} />
       <section className="panel section-gap">
         <p className="eyebrow">OBS BROWSER SOURCE</p>
         <h2>OBSプレーヤー</h2>

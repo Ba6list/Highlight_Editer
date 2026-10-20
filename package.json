@@ -11,12 +11,14 @@
     "dev:api": "wrangler dev --config wrangler.jsonc --port 8790",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "check": "npm run build && npm test",
+    "check": "npm run build && npm test && npm run test:extension",
     "db:local": "wrangler d1 migrations apply nobori-highlight --config wrangler.jsonc --local",
     "db:remote": "wrangler d1 migrations apply nobori-highlight --config wrangler.jsonc --remote",
     "deploy": "npm run build && node scripts/check-deploy.mjs && wrangler deploy --config wrangler.jsonc",
     "setup": "node scripts/setup.mjs",
-    "dev:ui": "vite --host 127.0.0.1 --port 5190"
+    "dev:ui": "vite --host 127.0.0.1 --port 5190",
+    "test:extension": "node --test tests/extension.test.mjs",
+    "extension:package": "python3 scripts/package-extension.py"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

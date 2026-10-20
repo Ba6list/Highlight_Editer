@@ -24,3 +24,5 @@
 - 2026-10-20: ユーザーがCloudflare account subdomainをnbrhgに変更済み（画面確認）。変更直後にはTLSハンドシェイク失敗が発生し、その後ユーザーから反映待ちが解消しアクセスできたとの報告あり。ローカルAPP_ORIGINは新URLへ更新。ユーザー「おk」で今回の本番反映を許可。GitHub Actions run 39353379590でコミット7253654da4486c4585b3aa1379fef2cce589721dを公開し、check・deployとも成功。本番APP_ORIGINは新URLへ反映済み。Twitchの新リダイレクトURIを画面で確認済み、Google側もユーザーから変更・保存完了の報告あり。2026-10-19の画面では両サービス接続済みを確認済み。実動画・OBSテストはユーザー希望で後日。
 
 - 2026-10-20公開後の確認: 新URLトップ・JS/CSSは200、未認証の/api/session・/api/stateは401。/api/loginへパスワードを含まない空JSONを送信し、新Originは入力検証の400、不正Originは403（認証処理・セッション作成なし）。新URLのOrigin設定が本番で有効であることを確認。TwitchのSecret再発行はユーザーが後で行う予定。秘密値は記録しない。
+
+- 2026-10-20: ユーザー希望でChrome拡張NOBORI Clipを実装。extension/にMV3、worker/extension.tsに一度限りのコード引換と限定Bearer API、migrations/0002_extension.sql追加。Web側の保存処理はworker/capture.tsへ共通化。ローカル57件成功。Chrome実機と実Twitch保存は未検証。今回の拡張対応の本番公開許可はまだ受けていない。公開時は新規マイグレーションが必要。ユーザーが後日に延期した実動画・OBSテストを勝手に開始しない。

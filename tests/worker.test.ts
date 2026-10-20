@@ -142,6 +142,8 @@ beforeEach(async () => {
       "frames",
       "playlists",
       "clips",
+      "extension_pair_codes",
+      "extension_tokens",
       "sessions",
       "rate_limits",
       "connections",
@@ -902,5 +904,94 @@ describe("自動アーカイブの定期実行", () => {
     expect(
       await e.DB.prepare("SELECT * FROM storage_history LIMIT 1").first(),
     ).not.toBeNull();
+  });
+});
+
+describe("Chrome拡張の限定アクセス", () => {
+  async function pair() {
+    const issued = await request("/api/extension-code", "POST", {});
+    expect(issued.status).toBe(200);
+    const { code } = await issued.json() as { code: string };
+    const redeemed = await request("/api/extension/pair", "POST", { code }, { Cookie: "", Origin: "chrome-extension://test", "X-CSRF-Token": "" });
+    expect(redeemed.status).toBe(200);
+    return { code, ...await redeemed.json() as { token: string; expires: number; name: string } };
+  }
+  const ext = (token: string) => ({ Cookie: "", Authorization: "Bearer " + token, Origin: "chrome-extension://test", "X-CSRF-Token": "" });
+  it("コード発行はログイン・Origin・CSRFが必要", async () => {
+    expect((await request("/api/extension-code", "POST", {}, { Cookie: "" })).status).toBe(401);
+    expect((await request("/api/extension-code", "POST", {}, { Origin: "https://www.twitch.tv" })).status).toBe(403);
+    expect((await request("/api/extension-code", "POST", {}, { "X-CSRF-Token": "" })).status).toBe(403);
+  });
+  it("コードの引き換えは並行実行しても一度限り、DBにはハッシュのみ", async () => {
+    const { code } = await (await request("/api/extension-code", "POST", {})).json() as any;
+    const row = await e.DB.prepare("SELECT code_hash FROM extension_pair_codes").first<any>();
+    expect(row.code_hash).not.toBe(code);
+    const responses = await Promise.all([request("/api/extension/pair", "POST", { code }, { Cookie: "" }), request("/api/extension/pair", "POST", { code }, { Cookie: "" })]);
+    expect(responses.map(r => r.status).sort()).toEqual([200, 401]);
+    const good = responses.find(r => r.status === 200)!;
+    const data = await good.json() as any;
+    expect((await e.DB.prepare("SELECT token_hash FROM extension_tokens").first<any>()).token_hash).not.toBe(data.token);
+    expect((await request("/api/extension/status", "GET", undefined, ext(data.token))).status).toBe(200);
+  });
+  it("期限切れの接続コードは引き換え不可", async () => {
+    const { code } = await (await request("/api/extension-code", "POST", {})).json() as any;
+    await e.DB.prepare("UPDATE extension_pair_codes SET expires=0").run();
+    expect((await request("/api/extension/pair", "POST", { code }, { Cookie: "" })).status).toBe(401);
+  });
+  it("Bearerでは編集・管理・動画読取へアクセスできず、未知の拡張操作も拒否", async () => {
+    const { token } = await pair();
+    expect((await request("/api/state", "GET", undefined, ext(token))).status).toBe(401);
+    expect((await request("/api/playlists", "POST", { title: "不正" }, ext(token))).status).toBe(401);
+    expect((await request("/api/extension/settings", "POST", {}, ext(token))).status).toBe(404);
+    expect((await request("/media/clip/" + crypto.randomUUID(), "GET", undefined, ext(token))).status).toBe(401);
+    expect((await request("/api/extension/status", "GET", undefined, ext(token + "x"))).status).toBe(401);
+  });
+  it("接続期限・ログアウト・パスワード変更の失効を継承", async () => {
+    const first = await pair();
+    await e.DB.prepare("UPDATE extension_tokens SET expires=0").run();
+    expect((await request("/api/extension/status", "GET", undefined, ext(first.token))).status).toBe(401);
+    const second = await pair();
+    await e.DB.prepare("UPDATE config SET value='2' WHERE key='credential_epoch'").run();
+    expect((await request("/api/extension/status", "GET", undefined, ext(second.token))).status).toBe(401);
+    await e.DB.prepare("UPDATE config SET value='1' WHERE key='credential_epoch'").run();
+    await request("/api/logout", "POST", {});
+    expect((await request("/api/extension/status", "GET", undefined, ext(second.token))).status).toBe(401);
+  });
+  it("拡張単体の解除とアプリからの一括解除", async () => {
+    const a = await pair(), b = await pair();
+    expect((await request("/api/extension/disconnect", "POST", {}, ext(a.token))).status).toBe(200);
+    expect((await request("/api/extension/status", "GET", undefined, ext(a.token))).status).toBe(401);
+    expect((await request("/api/extension/status", "GET", undefined, ext(b.token))).status).toBe(200);
+    await request("/api/extension-revoke", "POST", {});
+    expect((await request("/api/extension/status", "GET", undefined, ext(b.token))).status).toBe(401);
+  });
+  it("ステータス応答は最近5件だけで動画キーや認可情報を含まない", async () => {
+    for (let i = 0; i < 7; i++) await clip();
+    const { token } = await pair();
+    const data = await (await request("/api/extension/status", "GET", undefined, ext(token))).json() as any;
+    expect(data.clips).toHaveLength(5);
+    expect(Object.keys(data.clips[0]).sort()).toEqual(["created", "error", "id", "status", "title"]);
+    expect(JSON.stringify(data)).not.toContain("access_token");
+  });
+  it("拡張からの処理続行は保存処理中だけで、保留中の再試行やアーカイブには進まない", async () => {
+    const { token } = await pair();
+    const archived = await clip("archived");
+    expect((await request("/api/extension/process", "POST", { id: archived }, ext(token))).status).toBe(409);
+    expect(await claim(e, archived, true)).toBeNull();
+    const retry = await clip("retry");
+    await e.DB.prepare("UPDATE clips SET retry_at=? WHERE id=?").bind(Date.now() + 60000, retry).run();
+    expect(await claim(e, retry, true)).toBeNull();
+    const ready = await clip();
+    expect(await claim(e, ready, true)).toBeNull();
+  });
+  it("保存は既存と同じ要求IDで重複せず、Cookieなしでも限定ルートだけ利用可", async () => {
+    const id = await clip();
+    const key = (await e.DB.prepare("SELECT request_key FROM clips WHERE id=?").bind(id).first<any>()).request_key;
+    const { token } = await pair();
+    for (let i = 0; i < 2; i++) {
+      const r = await request("/api/extension/capture", "POST", { requestKey: key, title: "テスト", duration: 30 }, ext(token));
+      expect(r.status).toBe(202); expect((await r.json() as any).id).toBe(id);
+    }
+    expect((await e.DB.prepare("SELECT COUNT(*) n FROM clips").first<any>()).n).toBe(1);
   });
 });

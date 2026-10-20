@@ -27,6 +27,8 @@ import {
   issuePlayer,
   playerAuth,
 } from "./security";
+import { capture } from "./capture";
+import { extensionRoute, issueExtensionCode, revokeExtensions } from "./extension";
 import { oauthStart, oauthCallback, twitch } from "./connections";
 import { capacity, processClip, tick, cleanup, isProtected } from "./jobs";
 const titleSchema = z.string().trim().min(1).max(160);
@@ -145,6 +147,7 @@ async function route(
     503,
     "初期設定が未完了です。セットアップ手順を確認してください",
   );
+  if (path.startsWith("/api/extension/")) return extensionRoute(req, e, ctx);
   if (path === "/api/login" && method === "POST") {
     assert(
       req.headers.get("origin") === e.APP_ORIGIN,
@@ -240,6 +243,8 @@ async function route(
   if (path.startsWith("/media/")) return serveMedia(req, e);
   const s = await session(req, e);
   if (!["GET", "HEAD"].includes(method)) csrf(req, e, s);
+  if (path === "/api/extension-code" && method === "POST") return issueExtensionCode(e, s);
+  if (path === "/api/extension-revoke" && method === "POST") return revokeExtensions(e, s);
   if (path === "/api/session")
     return json({ name: s.name, csrf: s.csrf, expires: s.expires });
   if (path === "/api/logout" && method === "POST") {
@@ -385,52 +390,7 @@ async function route(
       started: response.data[0]?.started_at || null,
     });
   }
-  if (path === "/api/clips" && method === "POST") {
-    const input = await body(
-      req,
-      z.object({
-        requestKey: z.string().uuid(),
-        title: titleSchema.default("NOBORI Highlight"),
-        duration: z.union([z.literal(30), z.literal(60)]).default(60),
-      }),
-    );
-    const previous = await e.DB.prepare(
-      "SELECT id FROM clips WHERE request_key=?",
-    )
-      .bind(input.requestKey)
-      .first();
-    if (previous) return json(previous, 202);
-    await limit(e, "capture:" + s.id, 30);
-    await capacity(e, 100 * 1024 * 1024);
-    assert(
-      await e.DB.prepare(
-        "SELECT provider FROM connections WHERE provider='twitch'",
-      ).first(),
-      409,
-      "管理者がTwitchを接続してください",
-    );
-    const id = uid(),
-      created = now();
-    await e.DB.prepare(
-      "INSERT OR IGNORE INTO clips(id,request_key,title,created,updated,archive_at,requested_duration) VALUES (?,?,?,?,?,?,?)",
-    )
-      .bind(
-        id,
-        input.requestKey,
-        input.title,
-        created,
-        created,
-        archiveDate(created, Number(await getConfig(e, "retention_days", "7"))),
-        input.duration,
-      )
-      .run();
-    const row = await e.DB.prepare("SELECT id FROM clips WHERE request_key=?")
-      .bind(input.requestKey)
-      .first<{ id: string }>();
-    ctx.waitUntil(processClip(e, row!.id));
-    await audit(e, s.name, "capture:" + row!.id);
-    return json(row, 202);
-  }
+  if (path === "/api/clips" && method === "POST") return capture(req, e, ctx, s);
   if (path === "/api/playlists" && method === "POST") {
     const input = await body(
       req,

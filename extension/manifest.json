@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "NOBORI Clip",
+  "version": "0.1.0",
+  "description": "nobori_officialのTwitch配信画面からNOBORI Highlight Studioへクリップを保存します。",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage"],
+  "host_permissions": ["https://nobori-highlight-studio.nbrhg.workers.dev/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "NOBORI Clip 接続設定" },
+  "content_scripts": [{ "matches": ["https://www.twitch.tv/*"], "js": ["content.js"], "run_at": "document_idle" }],
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://nobori-highlight-studio.nbrhg.workers.dev" }
+}

@@ -30,12 +30,12 @@ export async function capacity(e: Env, reserve = 0) {
     "保存容量の上限に近づいています。アーカイブして空きを確保してください",
   );
 }
-export async function claim(e: Env, id: string) {
+export async function claim(e: Env, id: string, captureOnly = false) {
   const owner = crypto.randomUUID();
   return await e.DB.prepare(
-    "UPDATE clips SET lease_until=?, lease_owner=? WHERE id=? AND lease_until<? RETURNING *",
+    "UPDATE clips SET lease_until=?, lease_owner=? WHERE id=? AND lease_until<?" + (captureOnly ? " AND status IN ('requested','generating','downloading','storing','retry') AND retry_at<?" : "") + " RETURNING *",
   )
-    .bind(Date.now() + 90000, owner, id, Date.now())
+    .bind(Date.now() + 90000, owner, id, Date.now(), ...(captureOnly ? [Date.now()] : []))
     .first<Clip>();
 }
 export async function status(e: Env, c: Clip, stage: string) {
@@ -387,8 +387,8 @@ async function restore(e: Env, c: Clip) {
     )
     .run();
 }
-export async function processClip(e: Env, id: string) {
-  const c = await claim(e, id);
+export async function processClip(e: Env, id: string, captureOnly = false) {
+  const c = await claim(e, id, captureOnly);
   if (!c) return;
   try {
     if (
@@ -455,6 +455,8 @@ export async function tick(e: Env) {
 }
 export async function cleanup(e: Env) {
   await e.DB.batch([
+    e.DB.prepare("DELETE FROM extension_pair_codes WHERE expires<?").bind(Date.now()),
+    e.DB.prepare("DELETE FROM extension_tokens WHERE expires<?").bind(Date.now()),
     e.DB.prepare("DELETE FROM sessions WHERE expires<?").bind(Date.now()),
     e.DB.prepare("DELETE FROM rate_limits WHERE expires<?").bind(Date.now()),
     e.DB.prepare("DELETE FROM oauth_states WHERE expires<?").bind(Date.now()),

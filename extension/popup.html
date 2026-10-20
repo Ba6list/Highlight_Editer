@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><title>NOBORI Clip</title><link rel="stylesheet" href="popup.css"></head>
+<body><header><span class="mark">N</span><div><strong>NOBORI CLIP</strong><small>配信を見ながら、プレーを残す。</small></div></header>
+<p id="status" role="status">接続を確認しています…</p>
+<form id="pair"><label for="code">アプリで発行した接続コード</label><textarea id="code" rows="3" autocomplete="off" spellcheck="false" required placeholder="システム設定 → 接続コードを発行"></textarea><button id="connect" type="submit">このChromeを接続する</button></form>
+<button id="disconnect" hidden>この拡張の接続を解除</button>
+<a href="https://nobori-highlight-studio.nbrhg.workers.dev/#settings" target="_blank" rel="noopener noreferrer">アプリで接続コードを発行 ↗</a>
+<a href="https://www.twitch.tv/nobori_official" target="_blank" rel="noopener noreferrer">公式Twitch配信を開く ↗</a>
+<p class="help">コードは5分間・一度限り。接続はアプリのログアウト・ログイン期限・Chrome終了で切れます。パスワードや管理者PINは入力しません。</p>
+<script src="popup.js"></script></body></html>
