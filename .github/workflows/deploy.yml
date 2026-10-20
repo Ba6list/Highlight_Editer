@@ -30,7 +30,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: nobori-clip-extension
-          path: ../nobori-clip-extension.zip
+          path: artifacts/nobori-clip-extension.zip
           retention-days: 7
       - uses: actions/upload-artifact@v4
         with:

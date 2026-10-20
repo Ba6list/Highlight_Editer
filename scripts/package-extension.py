@@ -8,7 +8,8 @@ source = root / "extension"
 names = ["manifest.json", "background.js", "content.js", "popup.html", "popup.css", "popup.js", "README.md"]
 manifest = json.loads((source / "manifest.json").read_text())
 assert manifest["manifest_version"] == 3
-target = root.parent / "nobori-clip-extension.zip"
+target = root / "artifacts" / "nobori-clip-extension.zip"
+target.parent.mkdir(exist_ok=True)
 with ZipFile(target, "w", ZIP_DEFLATED) as archive:
     for name in names:
         archive.write(source / name, "nobori-clip/" + name)
