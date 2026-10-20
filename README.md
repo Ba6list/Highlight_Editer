@@ -4,7 +4,7 @@ NOBORI大会のTwitchクリップを収集し、必要な範囲と順番を編�
 
 ## 現在の状態
 
-WebアプリはCloudflareで公開済みで、Twitch・Googleの初回接続は確認済みです。Chrome拡張の対応版は実装・自動テスト済み、本番反映と実機確認前です。**本番配信での利用前に [受け入れ確認](docs/ACCEPTANCE.md) を実施してください。** 模擬APIによる検証と実サービスでの検証を区別しています。
+WebアプリはCloudflareで公開済みで、Twitch・Googleの初回接続は確認済みです。Chrome拡張の対応版も本番反映済みです。拡張のChrome実機・実動画保存の確認は未実施です。**本番配信での利用前に [受け入れ確認](docs/ACCEPTANCE.md) を実施してください。** 模擬APIによる検証と実サービスでの検証を区別しています。
 
 - Chrome拡張「NOBORI Clip」：公式Twitch画面の保存パネル、限定トークン、接続コード、重複要求の再試行（[導入手順](extension/README.md)）
 - 共通パスワード、12時間セッション、管理者PIN、CSRF対策、試行制限、暗号化トークン
