@@ -29,4 +29,4 @@
 
 - 拡張対応の本番確認: 新JS/CSSとトップは200、未認証の拡張API・コード発行は401。Chromeでシステム設定の拡張接続パネル表示を確認。接続コードは発行していない。拡張インストール・実Twitch保存・OBSは未実施。ローカルWranglerからのD1読取クエリは7403権限エラーになったため、追加マイグレーション成功はGitHubのdeployログで確認（バージョン0bdb05c6-931d-4076-b6df-760d64e2de63）。
 
-- 2026-10-21: Webサイト内からの拡張ダウンロードを追加。ExtensionPanelのZIPボタン・折りたたみ導入手順、prebuildでのZIP生成、public/downloadsへのコピー、添付ヘッダーを追加。配布物は明示した7ファイルのみ。public/downloads/*.zipはGit管理外で毎ビルド生成し、distへ含める。ビルドとZIP一致・秘密情報非混入を確認。今回の本番公開許可はまだ受けていない。DBの変更なし。
+- 2026-10-21: Webサイト内からの拡張ダウンロードを追加。ExtensionPanelのZIPボタン・折りたたみ導入手順、prebuildでのZIP生成、public/downloadsへのコピー、添付ヘッダーを追加。配布物は明示した7ファイルのみ。public/downloads/*.zipはGit管理外で毎ビルド生成し、distへ含める。ビルドとZIP一致・秘密情報非混入を確認。ユーザー「ok」で今回の公開を許可。コミット9c2a9db1fd1836b42f9e89d83768c33aa9d44701をActions run39527026166（workflow_dispatch、deploy=true）から公開し、check・deploy成功。公開ZIPはHTTP 200、application/zip・添付ヘッダーを確認し、7ファイルすべてローカル配布物と内容一致、ZIP整合性正常。トップ・JSも200でダウンロードリンク反映済み。DBの変更なし。拡張のChrome実機・実動画・OBSテストは引き続き後日。次回公開には新たな許可が必要。
