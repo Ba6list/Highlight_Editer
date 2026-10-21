@@ -4,7 +4,7 @@ Twitchで公式配信を見ながら、同じ画面からクリップを保存�
 
 ## 初回インストール
 
-1. 配布ZIPを展開します。`nobori-clip`フォルダ内に`manifest.json`があることを確認します。
+1. アプリの「システム設定」→「Chrome拡張をダウンロード（ZIP）」で取得したZIPを展開します。`nobori-clip`フォルダ内に`manifest.json`があることを確認します。
 2. Chromeで`chrome://extensions`を開き、右上の「デベロッパーモード」をオンにします。
 3. 「パッケージ化されていない拡張機能を読み込む」で`nobori-clip`フォルダを選びます。ソースから入れる場合はこのプロジェクトの`extension`フォルダです。
 4. Chromeの拡張メニューでNOBORI Clipをピン留めします。

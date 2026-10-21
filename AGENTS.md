@@ -28,3 +28,5 @@
 - 2026-10-20: ユーザー希望でChrome拡張NOBORI Clipを実装。extension/にMV3、worker/extension.tsに一度限りのコード引換と限定Bearer API、migrations/0002_extension.sql追加。Web側の保存処理はworker/capture.tsへ共通化。ローカル57件成功。Chrome実機と実Twitch保存は未検証。今回ユーザー「とりあえず本番反映お願いするでok??」で公開を許可。コミット28bc3b0024949a8ff9423ebf3cde953855cd2736をActions run39359336850から公開し、0002_extension.sql適用・check・deploy成功。ユーザーが後日に延期した実動画・OBSテストを勝手に開始しない。
 
 - 拡張対応の本番確認: 新JS/CSSとトップは200、未認証の拡張API・コード発行は401。Chromeでシステム設定の拡張接続パネル表示を確認。接続コードは発行していない。拡張インストール・実Twitch保存・OBSは未実施。ローカルWranglerからのD1読取クエリは7403権限エラーになったため、追加マイグレーション成功はGitHubのdeployログで確認（バージョン0bdb05c6-931d-4076-b6df-760d64e2de63）。
+
+- 2026-10-21: Webサイト内からの拡張ダウンロードを追加。ExtensionPanelのZIPボタン・折りたたみ導入手順、prebuildでのZIP生成、public/downloadsへのコピー、添付ヘッダーを追加。配布物は明示した7ファイルのみ。public/downloads/*.zipはGit管理外で毎ビルド生成し、distへ含める。ビルドとZIP一致・秘密情報非混入を確認。今回の本番公開許可はまだ受けていない。DBの変更なし。

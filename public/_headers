@@ -4,3 +4,7 @@
   X-Frame-Options: DENY
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.twitch.tv https://*.twitchcdn.net data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
   Strict-Transport-Security: max-age=31536000
+
+/downloads/nobori-clip-extension.zip
+  Content-Disposition: attachment; filename="nobori-clip-extension.zip"
+  Cache-Control: no-cache

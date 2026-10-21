@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "npm run build && wrangler dev --config wrangler.jsonc --ip 127.0.0.1 --port 8790",
     "dev:api": "wrangler dev --config wrangler.jsonc --port 8790",
+    "prebuild": "npm run extension:package",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "check": "npm run build && npm test && npm run test:extension",

@@ -1516,3 +1516,28 @@ footer {
   font-size: 12px;
   color: #9cacb7;
 }
+
+.extension-install {
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid var(--border, #343c44);
+  border-radius: 8px;
+  background: #10171c;
+}
+.extension-download {
+  flex-wrap: wrap;
+  text-align: center;
+}
+.extension-guide summary {
+  cursor: pointer;
+  color: #d7e5e9;
+  font-weight: 600;
+}
+.extension-guide ol {
+  padding-left: 24px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.extension-guide li { margin: 10px 0; }
+.extension-guide code { overflow-wrap: anywhere; color: #d4e6eb; }
+.extension-guide a { display: inline; color: var(--accent); }

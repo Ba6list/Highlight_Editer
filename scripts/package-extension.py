@@ -1,5 +1,6 @@
 """Package only the extension's explicit public files. Never include app secrets."""
 import json
+import shutil
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -14,3 +15,7 @@ with ZipFile(target, "w", ZIP_DEFLATED) as archive:
     for name in names:
         archive.write(source / name, "nobori-clip/" + name)
 print(f"Chrome拡張のZIPを作成しました: {target}")
+download = root / "public" / "downloads" / target.name
+download.parent.mkdir(parents=True, exist_ok=True)
+shutil.copyfile(target, download)
+print("Webサイト用のダウンロードファイルも更新しました。")
