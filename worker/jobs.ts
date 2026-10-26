@@ -5,9 +5,9 @@ import { encrypt, decrypt } from "./security";
 const CHUNK = 4 * 1024 * 1024;
 export async function isProtected(e: Env, id: string) {
   return !!(await e.DB.prepare(
-    "SELECT clip_id FROM publication_clips WHERE clip_id=? UNION ALL SELECT clip_id FROM draft_clip_refs WHERE clip_id=? UNION ALL SELECT clip_id FROM playback_clip_leases WHERE clip_id=? AND expires>? LIMIT 1",
+    "SELECT clip_id FROM obs_clips WHERE clip_id=? UNION ALL SELECT clip_id FROM publication_clips WHERE clip_id=? UNION ALL SELECT clip_id FROM draft_clip_refs WHERE clip_id=? UNION ALL SELECT clip_id FROM playback_clip_leases WHERE clip_id=? AND expires>? LIMIT 1",
   )
-    .bind(id, id, id, Date.now())
+    .bind(id, id, id, id, Date.now())
     .first());
 }
 export async function capacity(e: Env, reserve = 0) {
@@ -33,9 +33,19 @@ export async function capacity(e: Env, reserve = 0) {
 export async function claim(e: Env, id: string, captureOnly = false) {
   const owner = crypto.randomUUID();
   return await e.DB.prepare(
-    "UPDATE clips SET lease_until=?, lease_owner=? WHERE id=? AND lease_until<?" + (captureOnly ? " AND status IN ('requested','generating','downloading','storing','retry') AND retry_at<?" : "") + " RETURNING *",
+    "UPDATE clips SET lease_until=?, lease_owner=? WHERE id=? AND lease_until<?" +
+      (captureOnly
+        ? " AND status IN ('requested','generating','downloading','storing','retry') AND retry_at<?"
+        : "") +
+      " RETURNING *",
   )
-    .bind(Date.now() + 90000, owner, id, Date.now(), ...(captureOnly ? [Date.now()] : []))
+    .bind(
+      Date.now() + 90000,
+      owner,
+      id,
+      Date.now(),
+      ...(captureOnly ? [Date.now()] : []),
+    )
     .first<Clip>();
 }
 export async function status(e: Env, c: Clip, stage: string) {
@@ -159,7 +169,7 @@ interface Transfer {
 async function archive(e: Env, c: Clip) {
   if (c.status !== "archiving") {
     const acquired = await e.DB.prepare(
-      "UPDATE clips SET status='archiving' WHERE id=? AND lease_owner=? AND status='ready' AND NOT EXISTS(SELECT 1 FROM draft_clip_refs WHERE clip_id=?) AND NOT EXISTS(SELECT 1 FROM publication_clips WHERE clip_id=?) AND NOT EXISTS(SELECT 1 FROM playback_clip_leases WHERE clip_id=? AND expires>?) RETURNING id",
+      "UPDATE clips SET status='archiving' WHERE id=? AND lease_owner=? AND status='ready' AND NOT EXISTS(SELECT 1 FROM draft_clip_refs WHERE clip_id=?) AND NOT EXISTS(SELECT 1 FROM obs_clips WHERE clip_id=clips.id) AND NOT EXISTS(SELECT 1 FROM publication_clips WHERE clip_id=?) AND NOT EXISTS(SELECT 1 FROM playback_clip_leases WHERE clip_id=? AND expires>?) RETURNING id",
     )
       .bind(c.id, c.lease_owner, c.id, c.id, c.id, Date.now())
       .first();
@@ -447,7 +457,7 @@ export async function processClip(e: Env, id: string, captureOnly = false) {
 }
 export async function tick(e: Env) {
   const row = await e.DB.prepare(
-    "SELECT id FROM clips WHERE lease_until<? AND retry_at<? AND ((status IN ('requested','generating','downloading','storing','retry','archiving','restoring')) OR (status='ready' AND archive_at<? AND NOT EXISTS(SELECT 1 FROM draft_clip_refs WHERE clip_id=clips.id) AND NOT EXISTS(SELECT 1 FROM publication_clips WHERE clip_id=clips.id) AND NOT EXISTS(SELECT 1 FROM playback_clip_leases WHERE clip_id=clips.id AND expires>?))) ORDER BY CASE WHEN status IN ('requested','generating','downloading','storing','retry') THEN 0 ELSE 1 END,created LIMIT 1",
+    "SELECT id FROM clips WHERE lease_until<? AND retry_at<? AND ((status IN ('requested','generating','downloading','storing','retry','archiving','restoring')) OR (status='ready' AND archive_at<? AND NOT EXISTS(SELECT 1 FROM draft_clip_refs WHERE clip_id=clips.id) AND NOT EXISTS(SELECT 1 FROM obs_clips WHERE clip_id=clips.id) AND NOT EXISTS(SELECT 1 FROM publication_clips WHERE clip_id=clips.id) AND NOT EXISTS(SELECT 1 FROM playback_clip_leases WHERE clip_id=clips.id AND expires>?))) ORDER BY CASE WHEN status IN ('requested','generating','downloading','storing','retry') THEN 0 ELSE 1 END,created LIMIT 1",
   )
     .bind(Date.now(), Date.now(), Date.now(), Date.now())
     .first<{ id: string }>();
@@ -455,8 +465,12 @@ export async function tick(e: Env) {
 }
 export async function cleanup(e: Env) {
   await e.DB.batch([
-    e.DB.prepare("DELETE FROM extension_pair_codes WHERE expires<?").bind(Date.now()),
-    e.DB.prepare("DELETE FROM extension_tokens WHERE expires<?").bind(Date.now()),
+    e.DB.prepare("DELETE FROM extension_pair_codes WHERE expires<?").bind(
+      Date.now(),
+    ),
+    e.DB.prepare("DELETE FROM extension_tokens WHERE expires<?").bind(
+      Date.now(),
+    ),
     e.DB.prepare("DELETE FROM sessions WHERE expires<?").bind(Date.now()),
     e.DB.prepare("DELETE FROM rate_limits WHERE expires<?").bind(Date.now()),
     e.DB.prepare("DELETE FROM oauth_states WHERE expires<?").bind(Date.now()),

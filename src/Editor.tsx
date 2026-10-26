@@ -162,7 +162,7 @@ export default function Editor({
         method: "POST",
         body: JSON.stringify({ version: versionRef.current }),
       });
-      notify("公開しました。新しい上映からOBSに反映されます");
+      notify("公開しました。OBS操作パネルで読み込んでから再生してください");
       await onChange();
     } catch (e) {
       notify((e as Error).message);
@@ -547,7 +547,7 @@ export default function Editor({
         </label>
         <hr />
         <p className="muted">
-          保存と公開は別の操作です。編集中の変更は「公開する」を押すまでOBSに反映されません。
+          保存と公開は別の操作です。OBSでは操作パネルで読み込んだ時点の保存内容を再生します。変更を反映するときは停止後に読み込み直してください。
         </p>
         <p className="muted">
           公開時点のフレームを固定します。差し替え後は新しいフレームを選んで再公開してください。

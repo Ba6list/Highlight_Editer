@@ -128,6 +128,10 @@ beforeAll(async () => {
   await applyD1Migrations(e.DB, JSON.parse(e.TEST_SCHEMA));
 });
 beforeEach(async () => {
+  await e.DB.prepare(
+    "UPDATE obs_control SET snapshot=NULL,revision=0,selection='',playlist_id=NULL,title='',version=0,action='stop',issued=0,target=''",
+  ).run();
+  await e.DB.prepare("DELETE FROM obs_runtime").run();
   await e.DB.batch(
     [
       "publication_clips",
@@ -911,87 +915,523 @@ describe("Chrome拡張の限定アクセス", () => {
   async function pair() {
     const issued = await request("/api/extension-code", "POST", {});
     expect(issued.status).toBe(200);
-    const { code } = await issued.json() as { code: string };
-    const redeemed = await request("/api/extension/pair", "POST", { code }, { Cookie: "", Origin: "chrome-extension://test", "X-CSRF-Token": "" });
+    const { code } = (await issued.json()) as { code: string };
+    const redeemed = await request(
+      "/api/extension/pair",
+      "POST",
+      { code },
+      { Cookie: "", Origin: "chrome-extension://test", "X-CSRF-Token": "" },
+    );
     expect(redeemed.status).toBe(200);
-    return { code, ...await redeemed.json() as { token: string; expires: number; name: string } };
+    return {
+      code,
+      ...((await redeemed.json()) as {
+        token: string;
+        expires: number;
+        name: string;
+      }),
+    };
   }
-  const ext = (token: string) => ({ Cookie: "", Authorization: "Bearer " + token, Origin: "chrome-extension://test", "X-CSRF-Token": "" });
+  const ext = (token: string) => ({
+    Cookie: "",
+    Authorization: "Bearer " + token,
+    Origin: "chrome-extension://test",
+    "X-CSRF-Token": "",
+  });
   it("コード発行はログイン・Origin・CSRFが必要", async () => {
-    expect((await request("/api/extension-code", "POST", {}, { Cookie: "" })).status).toBe(401);
-    expect((await request("/api/extension-code", "POST", {}, { Origin: "https://www.twitch.tv" })).status).toBe(403);
-    expect((await request("/api/extension-code", "POST", {}, { "X-CSRF-Token": "" })).status).toBe(403);
+    expect(
+      (await request("/api/extension-code", "POST", {}, { Cookie: "" })).status,
+    ).toBe(401);
+    expect(
+      (
+        await request(
+          "/api/extension-code",
+          "POST",
+          {},
+          { Origin: "https://www.twitch.tv" },
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (await request("/api/extension-code", "POST", {}, { "X-CSRF-Token": "" }))
+        .status,
+    ).toBe(403);
   });
   it("コードの引き換えは並行実行しても一度限り、DBにはハッシュのみ", async () => {
-    const { code } = await (await request("/api/extension-code", "POST", {})).json() as any;
-    const row = await e.DB.prepare("SELECT code_hash FROM extension_pair_codes").first<any>();
+    const { code } = (await (
+      await request("/api/extension-code", "POST", {})
+    ).json()) as any;
+    const row = await e.DB.prepare(
+      "SELECT code_hash FROM extension_pair_codes",
+    ).first<any>();
     expect(row.code_hash).not.toBe(code);
-    const responses = await Promise.all([request("/api/extension/pair", "POST", { code }, { Cookie: "" }), request("/api/extension/pair", "POST", { code }, { Cookie: "" })]);
-    expect(responses.map(r => r.status).sort()).toEqual([200, 401]);
-    const good = responses.find(r => r.status === 200)!;
-    const data = await good.json() as any;
-    expect((await e.DB.prepare("SELECT token_hash FROM extension_tokens").first<any>()).token_hash).not.toBe(data.token);
-    expect((await request("/api/extension/status", "GET", undefined, ext(data.token))).status).toBe(200);
+    const responses = await Promise.all([
+      request("/api/extension/pair", "POST", { code }, { Cookie: "" }),
+      request("/api/extension/pair", "POST", { code }, { Cookie: "" }),
+    ]);
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 401]);
+    const good = responses.find((r) => r.status === 200)!;
+    const data = (await good.json()) as any;
+    expect(
+      (
+        await e.DB.prepare(
+          "SELECT token_hash FROM extension_tokens",
+        ).first<any>()
+      ).token_hash,
+    ).not.toBe(data.token);
+    expect(
+      (
+        await request(
+          "/api/extension/status",
+          "GET",
+          undefined,
+          ext(data.token),
+        )
+      ).status,
+    ).toBe(200);
   });
   it("期限切れの接続コードは引き換え不可", async () => {
-    const { code } = await (await request("/api/extension-code", "POST", {})).json() as any;
+    const { code } = (await (
+      await request("/api/extension-code", "POST", {})
+    ).json()) as any;
     await e.DB.prepare("UPDATE extension_pair_codes SET expires=0").run();
-    expect((await request("/api/extension/pair", "POST", { code }, { Cookie: "" })).status).toBe(401);
+    expect(
+      (await request("/api/extension/pair", "POST", { code }, { Cookie: "" }))
+        .status,
+    ).toBe(401);
   });
   it("Bearerでは編集・管理・動画読取へアクセスできず、未知の拡張操作も拒否", async () => {
     const { token } = await pair();
-    expect((await request("/api/state", "GET", undefined, ext(token))).status).toBe(401);
-    expect((await request("/api/playlists", "POST", { title: "不正" }, ext(token))).status).toBe(401);
-    expect((await request("/api/extension/settings", "POST", {}, ext(token))).status).toBe(404);
-    expect((await request("/media/clip/" + crypto.randomUUID(), "GET", undefined, ext(token))).status).toBe(401);
-    expect((await request("/api/extension/status", "GET", undefined, ext(token + "x"))).status).toBe(401);
+    expect(
+      (await request("/api/state", "GET", undefined, ext(token))).status,
+    ).toBe(401);
+    expect(
+      (await request("/api/playlists", "POST", { title: "不正" }, ext(token)))
+        .status,
+    ).toBe(401);
+    expect(
+      (await request("/api/extension/settings", "POST", {}, ext(token))).status,
+    ).toBe(404);
+    expect(
+      (
+        await request(
+          "/media/clip/" + crypto.randomUUID(),
+          "GET",
+          undefined,
+          ext(token),
+        )
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await request(
+          "/api/extension/status",
+          "GET",
+          undefined,
+          ext(token + "x"),
+        )
+      ).status,
+    ).toBe(401);
   });
   it("接続期限・ログアウト・パスワード変更の失効を継承", async () => {
     const first = await pair();
     await e.DB.prepare("UPDATE extension_tokens SET expires=0").run();
-    expect((await request("/api/extension/status", "GET", undefined, ext(first.token))).status).toBe(401);
+    expect(
+      (
+        await request(
+          "/api/extension/status",
+          "GET",
+          undefined,
+          ext(first.token),
+        )
+      ).status,
+    ).toBe(401);
     const second = await pair();
-    await e.DB.prepare("UPDATE config SET value='2' WHERE key='credential_epoch'").run();
-    expect((await request("/api/extension/status", "GET", undefined, ext(second.token))).status).toBe(401);
-    await e.DB.prepare("UPDATE config SET value='1' WHERE key='credential_epoch'").run();
+    await e.DB.prepare(
+      "UPDATE config SET value='2' WHERE key='credential_epoch'",
+    ).run();
+    expect(
+      (
+        await request(
+          "/api/extension/status",
+          "GET",
+          undefined,
+          ext(second.token),
+        )
+      ).status,
+    ).toBe(401);
+    await e.DB.prepare(
+      "UPDATE config SET value='1' WHERE key='credential_epoch'",
+    ).run();
     await request("/api/logout", "POST", {});
-    expect((await request("/api/extension/status", "GET", undefined, ext(second.token))).status).toBe(401);
+    expect(
+      (
+        await request(
+          "/api/extension/status",
+          "GET",
+          undefined,
+          ext(second.token),
+        )
+      ).status,
+    ).toBe(401);
   });
   it("拡張単体の解除とアプリからの一括解除", async () => {
-    const a = await pair(), b = await pair();
-    expect((await request("/api/extension/disconnect", "POST", {}, ext(a.token))).status).toBe(200);
-    expect((await request("/api/extension/status", "GET", undefined, ext(a.token))).status).toBe(401);
-    expect((await request("/api/extension/status", "GET", undefined, ext(b.token))).status).toBe(200);
+    const a = await pair(),
+      b = await pair();
+    expect(
+      (await request("/api/extension/disconnect", "POST", {}, ext(a.token)))
+        .status,
+    ).toBe(200);
+    expect(
+      (await request("/api/extension/status", "GET", undefined, ext(a.token)))
+        .status,
+    ).toBe(401);
+    expect(
+      (await request("/api/extension/status", "GET", undefined, ext(b.token)))
+        .status,
+    ).toBe(200);
     await request("/api/extension-revoke", "POST", {});
-    expect((await request("/api/extension/status", "GET", undefined, ext(b.token))).status).toBe(401);
+    expect(
+      (await request("/api/extension/status", "GET", undefined, ext(b.token)))
+        .status,
+    ).toBe(401);
   });
   it("ステータス応答は最近5件だけで動画キーや認可情報を含まない", async () => {
     for (let i = 0; i < 7; i++) await clip();
     const { token } = await pair();
-    const data = await (await request("/api/extension/status", "GET", undefined, ext(token))).json() as any;
+    const data = (await (
+      await request("/api/extension/status", "GET", undefined, ext(token))
+    ).json()) as any;
     expect(data.clips).toHaveLength(5);
-    expect(Object.keys(data.clips[0]).sort()).toEqual(["created", "error", "id", "status", "title"]);
+    expect(Object.keys(data.clips[0]).sort()).toEqual([
+      "created",
+      "error",
+      "id",
+      "status",
+      "title",
+    ]);
     expect(JSON.stringify(data)).not.toContain("access_token");
   });
   it("拡張からの処理続行は保存処理中だけで、保留中の再試行やアーカイブには進まない", async () => {
     const { token } = await pair();
     const archived = await clip("archived");
-    expect((await request("/api/extension/process", "POST", { id: archived }, ext(token))).status).toBe(409);
+    expect(
+      (
+        await request(
+          "/api/extension/process",
+          "POST",
+          { id: archived },
+          ext(token),
+        )
+      ).status,
+    ).toBe(409);
     expect(await claim(e, archived, true)).toBeNull();
     const retry = await clip("retry");
-    await e.DB.prepare("UPDATE clips SET retry_at=? WHERE id=?").bind(Date.now() + 60000, retry).run();
+    await e.DB.prepare("UPDATE clips SET retry_at=? WHERE id=?")
+      .bind(Date.now() + 60000, retry)
+      .run();
     expect(await claim(e, retry, true)).toBeNull();
     const ready = await clip();
     expect(await claim(e, ready, true)).toBeNull();
   });
   it("保存は既存と同じ要求IDで重複せず、Cookieなしでも限定ルートだけ利用可", async () => {
     const id = await clip();
-    const key = (await e.DB.prepare("SELECT request_key FROM clips WHERE id=?").bind(id).first<any>()).request_key;
+    const key = (
+      await e.DB.prepare("SELECT request_key FROM clips WHERE id=?")
+        .bind(id)
+        .first<any>()
+    ).request_key;
     const { token } = await pair();
     for (let i = 0; i < 2; i++) {
-      const r = await request("/api/extension/capture", "POST", { requestKey: key, title: "テスト", duration: 30 }, ext(token));
-      expect(r.status).toBe(202); expect((await r.json() as any).id).toBe(id);
+      const r = await request(
+        "/api/extension/capture",
+        "POST",
+        { requestKey: key, title: "テスト", duration: 30 },
+        ext(token),
+      );
+      expect(r.status).toBe(202);
+      expect(((await r.json()) as any).id).toBe(id);
     }
-    expect((await e.DB.prepare("SELECT COUNT(*) n FROM clips").first<any>()).n).toBe(1);
+    expect(
+      (await e.DB.prepare("SELECT COUNT(*) n FROM clips").first<any>()).n,
+    ).toBe(1);
+  });
+});
+
+describe("OBS manual control", () => {
+  async function setup() {
+    const id = await clip();
+    const list = await playlist(id);
+    const token = await issuePlayer(e),
+      lease = crypto.randomUUID();
+    const path = (p: string) =>
+      "/api/player/" + p + "?token=" + encodeURIComponent(token);
+    const prepare = await request("/api/obs/prepare", "POST", {
+      playlistId: list,
+      version: 1,
+      revision: 0,
+    });
+    expect(prepare.status).toBe(200);
+    expect((await request(path("register"), "POST", { lease })).status).toBe(
+      200,
+    );
+    const c = (await (
+      await request(path("control") + "&lease=" + lease)
+    ).json()) as any;
+    return { id, list, token, lease, path, c };
+  }
+  it("requires staff session and CSRF for commands; player token cannot control playback", async () => {
+    const token = await issuePlayer(e);
+    const old = cookie;
+    cookie = "";
+    expect(
+      (
+        await request("/api/obs/command?token=" + token, "POST", {
+          action: "play",
+          revision: 0,
+        })
+      ).status,
+    ).toBe(401);
+    cookie = old;
+    expect(
+      (
+        await request(
+          "/api/obs/command",
+          "POST",
+          { action: "stop", revision: 0 },
+          { "X-CSRF-Token": "" },
+        )
+      ).status,
+    ).toBe(403);
+  });
+  it("loads without play, waits for a ready acknowledgement, then plays/stops with revision guards", async () => {
+    const { path, lease, c } = await setup();
+    expect(c.action).toBe("prepare");
+    expect(
+      (
+        await request("/api/obs/command", "POST", {
+          action: "play",
+          revision: c.revision,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(path("report"), "POST", {
+          lease,
+          selection: c.selection,
+          revision: c.revision,
+          status: "ready",
+          item: 0,
+          sequence: 1,
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await request("/api/obs/command", "POST", {
+          action: "play",
+          revision: c.revision,
+        })
+      ).status,
+    ).toBe(200);
+    const playing = (await (
+      await request(path("control") + "&lease=" + lease)
+    ).json()) as any;
+    expect(playing.action).toBe("play");
+    expect(playing.target).toBe(lease);
+    expect(
+      (
+        await request("/api/obs/command", "POST", {
+          action: "stop",
+          revision: c.revision,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(path("report"), "POST", {
+          lease,
+          selection: c.selection,
+          revision: c.revision,
+          status: "ready",
+          item: 0,
+          sequence: 2,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request("/api/obs/command", "POST", {
+          action: "stop",
+          revision: playing.revision,
+        })
+      ).status,
+    ).toBe(200);
+  });
+  it("only accepts one player; a replacement registers at the latest revision without replay", async () => {
+    const { path, lease, c } = await setup();
+    expect(
+      (await request(path("register"), "POST", { lease: crypto.randomUUID() }))
+        .status,
+    ).toBe(409);
+    await e.DB.prepare("UPDATE obs_runtime SET seen=0").run();
+    const newLease = crypto.randomUUID();
+    const r = await request(path("register"), "POST", { lease: newLease });
+    expect(r.status).toBe(200);
+    expect(((await r.json()) as any).revision).toBe(c.revision);
+    expect((await request(path("control") + "&lease=" + lease)).status).toBe(
+      409,
+    );
+    expect(
+      (
+        await request(path("report"), "POST", {
+          lease,
+          selection: c.selection,
+          revision: c.revision,
+          status: "playing",
+          item: 0,
+          sequence: 1,
+        })
+      ).status,
+    ).toBe(409);
+  });
+  it("rejects delayed same-revision reports and switching material while playback is active", async () => {
+    const { path, lease, c, list } = await setup();
+    await request(path("report"), "POST", {
+      lease,
+      selection: c.selection,
+      revision: c.revision,
+      status: "ready",
+      item: 0,
+      sequence: 1,
+    });
+    const play = await request("/api/obs/command", "POST", {
+      action: "play",
+      revision: c.revision,
+    });
+    const rev = ((await play.json()) as any).revision;
+    expect(
+      (
+        await request("/api/obs/prepare", "POST", {
+          playlistId: list,
+          version: 1,
+          revision: rev,
+        })
+      ).status,
+    ).toBe(409);
+    await request(path("report"), "POST", {
+      lease,
+      selection: c.selection,
+      revision: rev,
+      status: "done",
+      item: 0,
+      sequence: 3,
+    });
+    expect(
+      (
+        await request(path("report"), "POST", {
+          lease,
+          selection: c.selection,
+          revision: rev,
+          status: "playing",
+          item: 0,
+          sequence: 2,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request("/api/obs/prepare", "POST", {
+          playlistId: null,
+          revision: rev,
+        })
+      ).status,
+    ).toBe(200);
+  });
+  it("protects prepared media independently of publication and draft edits, until cleared", async () => {
+    const { path, token, c, list, id } = await setup();
+    await e.DB.prepare("DELETE FROM playlists WHERE id=?").bind(list).run();
+    expect(
+      (
+        await request(
+          "/media/clip/" + id + "?token=" + token,
+          "GET",
+          undefined,
+          { Cookie: "" },
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await request(
+          "/api/clips/" + id,
+          "DELETE",
+          {},
+          { "X-Admin-Pin": "654321" },
+        )
+      ).status,
+    ).toBe(409);
+    await e.DB.prepare("UPDATE clips SET lease_owner='test' WHERE id=?")
+      .bind(id)
+      .run();
+    // No transfer can acquire prepared clips, including the scheduled worker path.
+    await processClip(e, id);
+    expect(
+      (
+        await e.DB.prepare("SELECT status FROM clips WHERE id=?")
+          .bind(id)
+          .first<any>()
+      ).status,
+    ).toBe("ready");
+    await e.DB.prepare(
+      "UPDATE clips SET lease_owner=NULL,lease_until=0 WHERE id=?",
+    )
+      .bind(id)
+      .run();
+    expect(
+      (
+        await request("/api/obs/prepare", "POST", {
+          playlistId: null,
+          revision: c.revision,
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await request(
+          "/media/clip/" + id + "?token=" + token,
+          "GET",
+          undefined,
+          { Cookie: "" },
+        )
+      ).status,
+    ).toBe(403);
+  });
+  it("rejects cross-origin reports and revoked tokens", async () => {
+    const { path, lease, c } = await setup();
+    expect(
+      (
+        await request(
+          path("report"),
+          "POST",
+          {
+            lease,
+            selection: c.selection,
+            revision: c.revision,
+            status: "ready",
+            item: 0,
+            sequence: 1,
+          },
+          { Origin: "https://evil.test" },
+        )
+      ).status,
+    ).toBe(403);
+    await e.DB.prepare(
+      "UPDATE config SET value='2' WHERE key='player_epoch'",
+    ).run();
+    expect((await request(path("control") + "&lease=" + lease)).status).toBe(
+      401,
+    );
   });
 });

@@ -546,7 +546,7 @@ export default function App() {
     </div>
   );
 }
-function Login({ onLogin }: { onLogin: (s: Session) => void }) {
+export function Login({ onLogin }: { onLogin: (s: Session) => void }) {
   const [password, setPassword] = useState(""),
     [name, setName] = useState(localStorage.getItem("nobori-name") || ""),
     [error, setError] = useState(""),
@@ -680,7 +680,7 @@ function Dashboard({
             <h2>{p?.title || "次のハイライトを準備しましょう"}</h2>
             <p className="muted">
               {p
-                ? "公開済みの内容がOBSプレーヤーに反映されています。"
+                ? "公開済みです。OBS操作パネルで素材を読み込み、再生を開始してください。"
                 : "クリップを選んで再生リストを作成し、完成したら公開します。"}
             </p>
             {p ? (
@@ -702,7 +702,7 @@ function Dashboard({
             <span className="muted">
               {s.publication
                 ? "公開 " + date(s.publication.published)
-                : "公開操作で映像を反映"}
+                : "OBS操作パネルで再生を開始"}
             </span>
           </div>
         </section>
@@ -1412,7 +1412,7 @@ function Playlists({
                   onClick={() =>
                     confirm(
                       "公開を停止",
-                      "新規のOBS上映を停止します。すでに再生中の映像は終了まで保護します。",
+                      "公開を取り下げます。OBSで準備・再生中の内容は変わりません。上映を止める場合はOBS操作パネルの「停止」を押してください。",
                       async () => {
                         await post("/playlists/" + p.id + "/unpublish");
                       },
@@ -1855,10 +1855,41 @@ function SettingsPage({
       </div>
       <ExtensionPanel notify={notify} />
       <section className="panel section-gap">
+        <p className="eyebrow">OBS CONTROL DOCK</p>
+        <h2>OBS操作パネル</h2>
+        <p className="muted">
+          OBSの「ドック」→「カスタムブラウザドック」に、下のURLを登録します。パネル内で共通パスワードを使ってログインし、素材の読み込み・再生・停止を操作できます。シーン切り替えは配信担当が行います。
+        </p>
+        <div className="player-url">
+          <input
+            aria-label="OBS操作パネルURL"
+            readOnly
+            value={location.origin + "/highlight/control"}
+          />
+          <button
+            onClick={() =>
+              void navigator.clipboard
+                .writeText(location.origin + "/highlight/control")
+                .then(() => notify("操作パネルURLをコピーしました"))
+                .catch(() => notify("URL欄からコピーしてください"))
+            }
+          >
+            <Copy size={15} />
+            コピー
+          </button>
+          <a href="/highlight/control" target="_blank" rel="noreferrer">
+            操作パネルを開く <ExternalLink size={13} />
+          </a>
+        </div>
+        <p className="muted">
+          素材を公開したりシーンを切り替えたりするだけでは再生しません。操作パネルで「読み込んで待機」→「再生」の順に操作してください。操作パネルがOBSに追加できない環境では、通常のブラウザからも操作できます。
+        </p>
+      </section>
+      <section className="panel section-gap">
         <p className="eyebrow">OBS BROWSER SOURCE</p>
         <h2>OBSプレーヤー</h2>
         <p className="muted">
-          幅1920・高さ1080でブラウザソースを追加。下の専用URLを登録します。「表示されていないときにソースをシャットダウン」と「シーンがアクティブになったときにブラウザの表示を更新」を有効にしてください。
+          幅1920・高さ1080でブラウザソースを追加し、専用URLを登録します。「表示されていないときにソースをシャットダウン」と「シーンがアクティブになったときにブラウザの表示を更新」は両方オフにしてください。再生は下の操作パネルから開始します。
         </p>
         <div className="row-actions wrap">
           <button
@@ -1919,7 +1950,7 @@ function SettingsPage({
               コピー
             </button>
             <a href={url + "&debug=1"} target="_blank" rel="noreferrer">
-              テスト再生 <ExternalLink size={13} />
+              接続確認 <ExternalLink size={13} />
             </a>
           </div>
         )}

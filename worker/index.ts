@@ -28,7 +28,19 @@ import {
   playerAuth,
 } from "./security";
 import { capture } from "./capture";
-import { extensionRoute, issueExtensionCode, revokeExtensions } from "./extension";
+import {
+  obsState,
+  obsPrepare,
+  obsCommand,
+  obsRegister,
+  obsPoll,
+  obsReport,
+} from "./obs";
+import {
+  extensionRoute,
+  issueExtensionCode,
+  revokeExtensions,
+} from "./extension";
 import { oauthStart, oauthCallback, twitch } from "./connections";
 import { capacity, processClip, tick, cleanup, isProtected } from "./jobs";
 const titleSchema = z.string().trim().min(1).max(160);
@@ -208,7 +220,19 @@ async function route(
   }
   if (path.startsWith("/api/player/")) {
     await playerAuth(req, e);
+    if (path === "/api/player/register" || path === "/api/player/report") {
+      assert(method === "POST", 405, "POSTを使用してください");
+      assert(
+        req.headers.get("origin") === e.APP_ORIGIN,
+        403,
+        "アクセス元が一致しません",
+      );
+      return path.endsWith("/register")
+        ? obsRegister(req, e)
+        : obsReport(req, e);
+    }
     assert(method === "GET", 405, "読み取り専用です");
+    if (path === "/api/player/control") return obsPoll(req, e);
     if (path.endsWith("/manifest")) return manifest(req, e);
     const lease = uuid.parse(u.searchParams.get("lease"));
     if (path.endsWith("/release")) {
@@ -243,8 +267,15 @@ async function route(
   if (path.startsWith("/media/")) return serveMedia(req, e);
   const s = await session(req, e);
   if (!["GET", "HEAD"].includes(method)) csrf(req, e, s);
-  if (path === "/api/extension-code" && method === "POST") return issueExtensionCode(e, s);
-  if (path === "/api/extension-revoke" && method === "POST") return revokeExtensions(e, s);
+  if (path === "/api/obs/state" && method === "GET") return obsState(e);
+  if (path === "/api/obs/prepare" && method === "POST")
+    return obsPrepare(req, e, s, (d) => valid(e, d));
+  if (path === "/api/obs/command" && method === "POST")
+    return obsCommand(req, e, s);
+  if (path === "/api/extension-code" && method === "POST")
+    return issueExtensionCode(e, s);
+  if (path === "/api/extension-revoke" && method === "POST")
+    return revokeExtensions(e, s);
   if (path === "/api/session")
     return json({ name: s.name, csrf: s.csrf, expires: s.expires });
   if (path === "/api/logout" && method === "POST") {
@@ -291,7 +322,7 @@ async function route(
         "SELECT at,name,action,result FROM audit ORDER BY id DESC LIMIT 100",
       ),
       e.DB.prepare(
-        "SELECT COUNT(*) AS count FROM playback_leases WHERE expires>?",
+        "SELECT (SELECT COUNT(*) FROM playback_leases WHERE expires>?)+(SELECT COUNT(*) FROM obs_runtime WHERE seen>unixepoch('subsec')*1000-15000) AS count",
       )
         .bind(now())
         .first<{ count: number }>(),
@@ -307,7 +338,7 @@ async function route(
     const protectedClipIds = (
       await all<{ clip_id: string }>(
         e,
-        "SELECT clip_id FROM draft_clip_refs UNION SELECT clip_id FROM publication_clips UNION SELECT clip_id FROM playback_clip_leases WHERE expires>?",
+        "SELECT clip_id FROM obs_clips UNION SELECT clip_id FROM draft_clip_refs UNION SELECT clip_id FROM publication_clips UNION SELECT clip_id FROM playback_clip_leases WHERE expires>?",
         now(),
       )
     ).map((row) => row.clip_id);
@@ -390,7 +421,8 @@ async function route(
       started: response.data[0]?.started_at || null,
     });
   }
-  if (path === "/api/clips" && method === "POST") return capture(req, e, ctx, s);
+  if (path === "/api/clips" && method === "POST")
+    return capture(req, e, ctx, s);
   if (path === "/api/playlists" && method === "POST") {
     const input = await body(
       req,
@@ -628,7 +660,7 @@ async function route(
         "再生リストからこの動画を外してから削除してください",
       );
       const lock = await e.DB.prepare(
-        "UPDATE clips SET status='deleting',lease_until=? WHERE id=? AND lease_until<? AND NOT EXISTS(SELECT 1 FROM draft_clip_refs WHERE clip_id=?) AND NOT EXISTS(SELECT 1 FROM publication_clips WHERE clip_id=?) AND NOT EXISTS(SELECT 1 FROM playback_clip_leases WHERE clip_id=? AND expires>?) RETURNING id",
+        "UPDATE clips SET status='deleting',lease_until=? WHERE id=? AND lease_until<? AND NOT EXISTS(SELECT 1 FROM draft_clip_refs WHERE clip_id=?) AND NOT EXISTS(SELECT 1 FROM obs_clips WHERE clip_id=clips.id) AND NOT EXISTS(SELECT 1 FROM publication_clips WHERE clip_id=?) AND NOT EXISTS(SELECT 1 FROM playback_clip_leases WHERE clip_id=? AND expires>?) RETURNING id",
       )
         .bind(now() + 90000, c.id, now(), c.id, c.id, c.id, now())
         .first();
@@ -721,6 +753,10 @@ async function route(
       await e.DB.batch([
         e.DB.prepare(
           "UPDATE config SET value=CAST(value AS INTEGER)+1 WHERE key='player_epoch'",
+        ),
+        e.DB.prepare("DELETE FROM obs_runtime"),
+        e.DB.prepare(
+          "UPDATE obs_control SET action='stop',revision=revision+1,target='',issued=0 WHERE id=1",
         ),
         e.DB.prepare("DELETE FROM playback_leases"),
         e.DB.prepare("DELETE FROM playback_clip_leases"),
@@ -853,7 +889,7 @@ async function route(
       .first<{ r2_key: string }>();
     assert(f, 404, "フレームがありません");
     const locked = await e.DB.prepare(
-      "UPDATE frames SET deleting=1 WHERE id=? AND NOT EXISTS(SELECT 1 FROM draft_frame_refs WHERE frame_id=?) AND NOT EXISTS(SELECT 1 FROM publication_frames WHERE frame_id=?) AND NOT EXISTS(SELECT 1 FROM playback_frame_leases WHERE frame_id=? AND expires>?) RETURNING id",
+      "UPDATE frames SET deleting=1 WHERE id=? AND NOT EXISTS(SELECT 1 FROM draft_frame_refs WHERE frame_id=?) AND NOT EXISTS(SELECT 1 FROM obs_frames WHERE frame_id=frames.id) AND NOT EXISTS(SELECT 1 FROM publication_frames WHERE frame_id=?) AND NOT EXISTS(SELECT 1 FROM playback_frame_leases WHERE frame_id=? AND expires>?) RETURNING id",
     )
       .bind(id, id, id, id, now())
       .first();
@@ -899,7 +935,15 @@ async function serveMedia(req: Request, e: Env) {
       )
         .bind(id, now())
         .first());
-    assert(allowed, 403, "公開された素材のみ再生できます");
+    if (!allowed)
+      allowed = !!(await e.DB.prepare(
+        m[1] === "clip"
+          ? "SELECT clip_id FROM obs_clips WHERE clip_id=?"
+          : "SELECT frame_id FROM obs_frames WHERE frame_id=?",
+      )
+        .bind(id)
+        .first());
+    assert(allowed, 403, "公開・OBS準備された素材のみ再生できます");
   }
   const row = await e.DB.prepare(
     m[1] === "clip"
