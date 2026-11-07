@@ -2,6 +2,7 @@ import type { Env, Clip } from "./types";
 import { assert, getConfig, AppError, audit } from "./core";
 import { connection, twitch, google, driveFolder } from "./connections";
 import { encrypt, decrypt } from "./security";
+import { fetchClipDownload } from "./twitch-media";
 const CHUNK = 4 * 1024 * 1024;
 export async function isProtected(e: Env, id: string) {
   return !!(await e.DB.prepare(
@@ -106,15 +107,7 @@ async function ingest(e: Env, c: Clip) {
   const result = await twitch(e, "clips/downloads?" + q);
   const url = result.data[0]?.landscape_download_url;
   assert(url, 502, "横向き動画のダウンロードがまだ準備できません");
-  const download = new URL(url);
-  assert(
-    download.protocol === "https:" &&
-      (download.hostname.endsWith(".twitchcdn.net") ||
-        download.hostname.endsWith(".twitch.tv")),
-    502,
-    "Twitchの動画URLを検証できません",
-  );
-  const r = await fetch(download.toString());
+  const r = await fetchClipDownload(url);
   assert(r.ok && r.body, 502, "動画を取得できません");
   const size = Number(r.headers.get("content-length"));
   assert(

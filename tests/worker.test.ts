@@ -547,13 +547,13 @@ describe("Twitchの公式API取り込み", () => {
           data: [
             {
               landscape_download_url:
-                "https://production.assets.clips.twitchcdn.net/video.mp4",
+                "https://d1ndex63qxojbr.cloudfront.net/video.mp4",
             },
           ],
         }),
       );
     fetchMock
-      .get("https://production.assets.clips.twitchcdn.net")
+      .get("https://d1ndex63qxojbr.cloudfront.net")
       .intercept({ path: "/video.mp4" })
       .reply(200, new Uint8Array(8).fill(1), {
         "Content-Length": "8",
