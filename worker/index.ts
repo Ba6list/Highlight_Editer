@@ -577,7 +577,7 @@ async function route(
     }
     if (method === "POST" && m[2] === "process") {
       if (c.lease_owner) return json({ ok: true });
-      ctx.waitUntil(processClip(e, c.id));
+      ctx.waitUntil(processClip(e, c.id, true));
       return json({ ok: true }, 202);
     }
     if (method === "POST" && m[2] === "retry") {

@@ -40,6 +40,7 @@ import {
 } from "./api";
 import Editor from "./Editor";
 import ExtensionPanel from "./ExtensionPanel";
+import { capturePending, startCaptureProgress } from "./capture-progress";
 const nav = [
   ["dashboard", "概要", LayoutDashboard],
   ["capture", "クリップを保存", Video],
@@ -112,6 +113,19 @@ export default function App() {
     title?: string;
   } | null>(null);
   const polling = useRef(false);
+  const captureProgress = useRef({ clips: state?.clips || [], refresh });
+  captureProgress.current = { clips: state?.clips || [], refresh };
+  useEffect(() => {
+    if (!session) return;
+    return startCaptureProgress({
+      pending: () =>
+        captureProgress.current.clips
+          .filter((c) => capturePending(c.status))
+          .map((c) => c.id),
+      process: (id) => post("/clips/" + id + "/process"),
+      refresh: () => captureProgress.current.refresh(),
+    });
+  }, [!!session]);
   function notify(m: string) {
     setMessage(m);
   }
@@ -867,21 +881,6 @@ function Capture({
     sessionStorage.getItem("nobori-pending-capture"),
   );
   const lock = useRef(false);
-  useEffect(() => {
-    const waiting = clips.filter((c) =>
-      ["requested", "generating", "downloading", "storing", "retry"].includes(
-        c.status,
-      ),
-    );
-    if (!waiting.length) return;
-    const t = setInterval(() => {
-      for (const c of waiting.slice(0, 2))
-        void post("/clips/" + c.id + "/process")
-          .then(refresh)
-          .catch(() => {});
-    }, 5000);
-    return () => clearInterval(t);
-  }, [clips]);
   return (
     <>
       <div className="capture-layout">

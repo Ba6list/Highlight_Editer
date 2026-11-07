@@ -24,6 +24,7 @@ import {
 } from "../worker/security";
 import { saveConnection } from "../worker/connections";
 import { processClip, claim } from "../worker/jobs";
+import { progressCapture } from "../worker/capture-progress";
 const replies = new Map<
   string,
   {
@@ -1433,5 +1434,97 @@ describe("OBS manual control", () => {
     expect((await request(path("control") + "&lease=" + lease)).status).toBe(
       401,
     );
+  });
+});
+
+describe("capture progress outside the capture page", () => {
+  it("checks generation again in the request background and stores the existing clip", async () => {
+    const id = await clip("generating");
+    await e.DB.prepare("UPDATE clips SET generation_started=? WHERE id=?")
+      .bind(Date.now(), id)
+      .run();
+    await saveConnection(e, "twitch", {
+      access_token: "test",
+      refresh_token: "test",
+      expires_at: Date.now() + 3600000,
+      validated_at: Date.now(),
+      user_id: "broadcaster",
+      login: "nobori_official",
+    });
+    fetchMock
+      .get("https://api.twitch.tv")
+      .intercept({ path: "/helix/clips?id=clip-twitch" })
+      .reply(200, JSON.stringify({ data: [] }));
+    fetchMock
+      .get("https://api.twitch.tv")
+      .intercept({
+        path: "/helix/clips/downloads?broadcaster_id=broadcaster&editor_id=broadcaster&clip_id=clip-twitch",
+      })
+      .reply(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              landscape_download_url:
+                "https://d1ndex63qxojbr.cloudfront.net/video.mp4",
+            },
+          ],
+        }),
+      );
+    fetchMock
+      .get("https://d1ndex63qxojbr.cloudfront.net")
+      .intercept({ path: "/video.mp4" })
+      .reply(200, new Uint8Array(8), {
+        "Content-Length": "8",
+        "Content-Type": "video/mp4",
+      });
+    let checks = 0;
+    await progressCapture(e, id, async () => {
+      checks++;
+      fetchMock
+        .get("https://api.twitch.tv")
+        .intercept({ path: "/helix/clips?id=clip-twitch" })
+        .reply(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: "clip-twitch",
+                duration: 30,
+                thumbnail_url: "https://clips-media-assets.twitch.tv/clip.jpg",
+              },
+            ],
+          }),
+        );
+    });
+    expect(checks).toBe(1);
+    expect(
+      await e.DB.prepare("SELECT status,bytes FROM clips WHERE id=?")
+        .bind(id)
+        .first(),
+    ).toMatchObject({ status: "ready", bytes: 8 });
+  });
+  it("keeps retry backoff and never advances archive work from the UI progress endpoint", async () => {
+    const id = await clip("retry");
+    await e.DB.prepare("UPDATE clips SET retry_at=? WHERE id=?")
+      .bind(Date.now() + 60000, id)
+      .run();
+    expect(
+      (await request("/api/clips/" + id + "/process", "POST", {})).status,
+    ).toBe(202);
+    expect(
+      await e.DB.prepare("SELECT status,attempts FROM clips WHERE id=?")
+        .bind(id)
+        .first(),
+    ).toMatchObject({ status: "retry", attempts: 0 });
+    const ready = await clip();
+    expect(
+      (await request("/api/clips/" + ready + "/process", "POST", {})).status,
+    ).toBe(202);
+    expect(
+      await e.DB.prepare("SELECT status FROM clips WHERE id=?")
+        .bind(ready)
+        .first(),
+    ).toMatchObject({ status: "ready" });
   });
 });
