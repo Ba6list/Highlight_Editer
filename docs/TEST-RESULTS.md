@@ -1,3 +1,9 @@
+## OBS操作パネル・動画取得修正の本番公開（2026-11-07）
+
+- ユーザー承認とGitHubログイン完了後、コミット`a64fd5d10af8a12940bef9010cb85335b6ebde59`を[Actions run42377633189](https://github.com/Ba6list/Highlight_Editer/actions/runs/42377633189)から公開。78件のテスト、追加D1マイグレーション、デプロイが成功。
+- `/highlight/control`とトップ・JSが200、認証なしの操作・プレーヤーAPIが401。Chromeで操作パネル表示を確認。OBSの再生・シーン操作はしていない。
+- 既存失敗クリップは確認時点で削除済み。削除成功の操作ログを確認したため、削除の取り消しや新規クリップ作成は行っていない。公式APIから取得した元動画URLへのHEAD要求はHTTP 200・46,397,985 bytes。動画本体は取得しておらず、R2への実保存成功は未確認。
+
 ## Twitch動画URLの取得修正（2026-11-07）
 
 - 既存の失敗クリップについて公式Get Clips Downloadの応答を確認。動画の配信先がd1ndex63qxojbr.cloudfront.netで、既存のホスト許可条件から漏れていた。
