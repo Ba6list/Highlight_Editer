@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Clip, Draft, Item, Playlist, Frame } from "./types";
 import { api, ApiError, media, frame, time } from "./api";
+import { clipToItem, defaultFrameId, applyLatestFrame } from "./playlist-items";
 import {
   ArrowDown,
   ArrowUp,
@@ -395,6 +396,29 @@ export default function Editor({
                 ))}
               </select>
             </label>
+            <p className="muted">
+              {frames.length
+                ? "新しく追加するクリップは最新のPNGフレームが自動でONになります。不要な場合は「フレームなし」を選べます。"
+                : "PNGを登録すると、新しく追加するクリップに自動で適用されます。"}
+            </p>
+            <div className="row-actions wrap">
+              <button
+                disabled={
+                  preview ||
+                  conflict ||
+                  !frames.length ||
+                  draft.items.every((i) => i.frameId === defaultFrameId(frames))
+                }
+                onClick={() => {
+                  change(applyLatestFrame(draft, frames));
+                  notify(
+                    "すべてのクリップに最新PNGを適用しました。保存後、OBS操作パネルで読み込み直してください。",
+                  );
+                }}
+              >
+                最新PNGをすべてに適用
+              </button>
+            </div>
           </div>
         )}
         <div className="section-line">
@@ -415,16 +439,7 @@ export default function Editor({
                   onClick={() => {
                     change({
                       ...draft,
-                      items: [
-                        ...draft.items,
-                        {
-                          id: crypto.randomUUID(),
-                          clipId: c.id,
-                          start: Math.max(0, c.duration - 30),
-                          end: c.duration,
-                          frameId: null,
-                        },
-                      ],
+                      items: [...draft.items, clipToItem(c, frames)],
                     });
                     setSelected(draft.items.length);
                   }}
@@ -550,7 +565,7 @@ export default function Editor({
           保存と公開は別の操作です。OBSでは操作パネルで読み込んだ時点の保存内容を再生します。変更を反映するときは停止後に読み込み直してください。
         </p>
         <p className="muted">
-          公開時点のフレームを固定します。差し替え後は新しいフレームを選んで再公開してください。
+          保存したフレーム指定を使います。PNGを追加しただけで既存の編集やOBS準備中の映像は変わりません。変更後は保存し、OBS操作パネルで読み込み直してください。
         </p>
         <span className="mono muted">VERSION {version}</span>
       </aside>

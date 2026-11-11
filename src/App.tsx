@@ -39,6 +39,7 @@ import {
   states,
 } from "./api";
 import Editor from "./Editor";
+import { clipToItem } from "./playlist-items";
 import ExtensionPanel from "./ExtensionPanel";
 import { capturePending, startCaptureProgress } from "./capture-progress";
 const nav = [
@@ -1130,15 +1131,7 @@ function Clips({
                         const p = await post<{ id: string }>("/playlists", {
                           title: c.title,
                           draft: {
-                            items: [
-                              {
-                                id: crypto.randomUUID(),
-                                clipId: c.id,
-                                start: Math.max(0, c.duration - 30),
-                                end: c.duration,
-                                frameId: null,
-                              },
-                            ],
+                            items: [clipToItem(c, s.frames)],
                             loop: false,
                             endBehavior: "black",
                           },

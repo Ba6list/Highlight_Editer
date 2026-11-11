@@ -917,6 +917,7 @@ main {
 }
 .preview-screen {
   position: relative;
+  isolation: isolate;
   background: #07090b;
   aspect-ratio: 16/9;
   border: 1px solid #30373f;
@@ -924,12 +925,15 @@ main {
   overflow: hidden;
 }
 .preview-screen video {
+  position: relative;
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 .frame-overlay {
   position: absolute;
+  z-index: 10;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -1191,12 +1195,14 @@ footer {
 }
 .obs-player {
   position: fixed;
+  isolation: isolate;
   inset: 0;
   background: #000;
   overflow: hidden;
 }
 .obs-player video {
   position: absolute;
+  z-index: 0;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -1208,6 +1214,7 @@ footer {
 }
 .obs-frame {
   position: absolute;
+  z-index: 10;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -1232,6 +1239,7 @@ footer {
 }
 .player-start {
   position: absolute;
+  z-index: 20;
   bottom: 30px;
   left: 50%;
   transform: translateX(-50%);
@@ -1239,6 +1247,7 @@ footer {
 }
 .player-debug {
   position: absolute;
+  z-index: 20;
   top: 0;
   left: 0;
   background: #000b;
